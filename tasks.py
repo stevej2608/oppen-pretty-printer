@@ -16,7 +16,7 @@ VERSION_TEMPLATE = """__version__ = "{version_string}"
 HERE = Path(__file__).parent
 
 @task(help={"version": "Version number to publish", "pipy": "publish on pypi"})
-def publish(_ctx, version, pipy=False):
+def publish(_ctx, version, pypi=False):
     """
     Publish package with given version number to git and pypi
     """
@@ -31,7 +31,7 @@ def publish(_ctx, version, pipy=False):
 
     def release_python_sdist():
 
-        if pipy:
+        if pypi:
             info("PyPI credentials:")
             invoke_run("twine upload dist/*", echo=True)
         else:

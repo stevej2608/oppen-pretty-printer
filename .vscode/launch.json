@@ -51,5 +51,28 @@
             "justMyCode": false
         },
 
+        {
+            "name": "3. Invoke",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": false,
+            "pythonPath": "${config:python.interpreterPath}",
+            "module": "invoke",
+            "args": [
+                "publish",
+                "--pypi",
+                "0.0.1"
+            ],
+            // !!!!! The following line is needed to allow invoke to find 
+            // executables that are part of the active conda environment. If the conda
+            // env is changed then change the this line accordingly
+            "env": {
+                "Path": "${env:Path};D:\\Anaconda\\envs\\py37\\Scripts;"
+            },
+            "cwd": "${workspaceRoot}",
+            "console": "internalConsole",
+            "justMyCode": false
+        }
+
     ]
 }
