@@ -1,0 +1,299 @@
+PrettyPrint: DEFINITIONS =
+	BEGIN
+
+-- types
+
+	TokenType: TYPE = {string break, begin, end, eof};
+
+	Token: TYPE = RECORD[
+		SELECT type: TokenType FROM
+			string => [string: string],
+
+			break => [
+				blankSpace: [0. .MaxBlanks] <- 1, -- number of spaces per blank
+				offset: [0. .31] <- 0], -- indent for overﬂow lines
+
+			begin => [
+				offset: [0. .127] <— 2, -- indent for this group
+				breakType: Breaks <— inconsistent], -- default “inconsistent”
+
+			end => NULL,
+
+			eof => NULL,
+			
+			ENDCASE];
+
+	MaxBlanks: CARDINAL = 127;
+	Breaks: TYPE = {consistent, inconsistent};
+	LineBreak: break Token = [break[blankSpace: MaxBlanks]];
+	END.
+
+PrettyPrinter: PROGRAM
+	EXPORTS PrettyPrint =
+	BEGIN
+	margin, space: INTEGER;
+	left, right: INTEGER;
+	token: DESCRIPTOR FOR ARRAY 0F Token <— DESCRIPTOR[NIL, 0];
+	size: DESCRIPTOR FOR ARRAY OF INTEGER <— DESCRIPTOR[NIL, 0];
+	leftTotal, rightTotal: INTEGER;
+
+
+	sizeInﬁnity: INTEGER = 77777B;
+
+	scanStack: DESCRIPTOR FOR ARRAY OF INTEGER <— DESCRIPTOR[NIL, 0];
+	scanStackEmpty: BOOLEAN;
+
+	top, bottom: CARDINAL;
+
+	printStack: PrintStack <— CreatePrintStack[63];
+
+	PrettyPrintInit: PROCEDURE[lineWidth: CARDINAL <— 75] =
+		BEGIN
+		n: CARDINAL;
+		space <— margin <—1ineWidth;
+		n <— 3*margin;
+		top <— bottom <— 0;
+		scanStackEmpty <— TRUE;
+		token <— Memory.Get[n*SIZE[Token], n];
+		size <— Memory.Get[n*SIZE[INTEGER], n];
+		scanStack <— Memory.Get[n*SIZE[CARDINAL], n];
+		END;
+
+	PrettyPrint: PROCEDURE[tkn: Token] =
+		BEGIN
+		WITH t: tkn SELECT FROM
+			eof =>
+			BEGIN
+				IF ~scanStackEmpty THEN
+				BEGIN
+					CheckStack[0];
+					AdvanceLeft[token[left], size[left]];
+					END;
+					Indent[0];
+					Memory.Free[BASE[token]];
+					Memory.Free[BASE[size]];
+					Memory.Free[BASE[scanStack]];
+				END;
+			begin =>
+				BEGIN
+				IF scanStackEmpty THEN
+					BEGIN
+					leftTotal <— rightTotal <— 1;
+					left <— right <— 0;
+					END
+				ELSE AdvanceRight[ ];
+                token[right] <— t;
+                size[right] <— —rightTotal;
+                ScanPush[right];
+				END;
+			end =>
+				BEGIN
+				IF scanStackEmpty THEN Print[t, O]
+				ELSE
+					BEGIN
+					AdvanceRight[ ];
+					token[right] <— t;
+					size[right] <— — 1;
+					ScanPush[right];
+					END;
+				END;
+			break =>
+				BEGIN
+				IF scanStackEmpty THEN
+					BEGIN
+					leftTotal <— rightTotal <— 1;
+					left <— right <— 0;
+					END
+				ELSE AdvanceRight[ ];
+				CheckStack[0];
+				ScanPush[right];
+				token[right] <— t;
+				size[right] <— —rightTotal;
+				rightTotal <— rightTotal + t.blankSpace;
+				END;
+			string =>
+				BEGIN
+				IF scanStackEmpty THEN Print[t, t.length]
+				ELSE
+					BEGIN
+					AdvanceRight[ ];
+					token[right] <— t;
+					size[right] <— t.length;
+					rightTotal <- rightTotal + t.length;
+					CheckStream[ ];
+					END;
+				END;
+			ENDCASE;
+		END;
+
+	CheckStream: PROCEDURE =
+	BEGIN
+	IF rightTotal - leftTotal > space THEN
+		BEGIN
+		IF ~scanStackEmpty THEN
+
+		IF left = scanStack[bottom] THEN
+		size[ScanPopBottom[ ]] <— sizeInﬁnity;
+
+		AdvanceLeft[token[left], size[left]];
+		IF ~(left = right) THEN CheckStream[ ];
+		END;
+	END;
+
+	ScanPush: PROCEDURE[x: CARDINAL] =
+	BEGIN
+	IF scanStackEmpty THEN scanStackEmpty <— FALSE
+	ELSE
+		BEGIN
+		top <— (top + l) MOD LENGTH[scanStack];
+		IF top = bottom THEN ERROR ScanStackFull;
+		END;
+	scanStack[top] <— x;
+	END;
+
+	ScanPop: PROCEDURE RETURNS[x: CARDINAL] =
+		BEGIN
+		IF scanStackEmpty THEN ERROR ScanStackEmpty;
+		x <— scanStack[top];
+		IF top = bottom THEN scanStackEmpty <— TRUE
+		ELSE top <— (top + LENGTH[scanStack] — 1) MOD LENGTH[scanStack];
+		END;
+
+	ScanTop: PROCEDURE RETURNS[CARDINAL] =
+		BEGIN
+		IF scanStackEmpty THEN ERROR ScanStackEmpty;
+		RETURN[scanStack[top]]
+		END;
+
+	ScanPopBottom: PROCEDURE RETURNS[x: CARDINAL] =
+		BEGIN
+		IF scanStackEmpty THEN ERROR ScanStackEmpty;
+		x <— scanStack[bottom];
+		IF top = bottom THEN scanStackEmpty (- TRUE
+		ELSE bottom <— (bottom + 1) MOD LENGTH[scanStack];
+		END;
+
+	AdvanceRight: PROCEDURE =
+		BEGIN
+		right <— (right + 1) MOD LENGTH[scanStack];
+		IF right = left THEN ERROR TokenQueueFull;
+		END;
+
+	AdvanceLeft: PROCEDURE[x: Token, l: INTEGER] = BEGIN
+		IF 1 >= 0 THEN
+		BEGIN
+			Print[x, l ];
+			WITH x SELECT FROM
+				break => leftTotal <— leftTotal + blankSpace;
+				string = leftTotal <— leftTotal + l;
+				ENDCASE;
+			IF left aé right THEN BEGIN
+				left <- (left + 1) MOD LENGTH[scanStack];
+				AdvanceLeft[token[left], size[left]];
+				END;
+			END;
+		END;
+
+	CheckStack: PROCEDURE[k: INTEGER] =
+		BEGIN
+		x: INTEGER;
+		IF ~scanStackEmpty THEN
+			BEGIN
+			x <- ScanTop[ ];
+			WITH token[x] SELECT FROM
+			begin =>
+				IF k > 0 THEN
+				BEGIN
+				size[ScanPop[ ]] <— size[x] + rightTotal;
+				CheckStack[k — 1];
+				END;
+			end => BEGIN size[ScanPop[ ]] <— 1; CheckStack[k + 1]; END;
+			ENDCASE =>
+				BEGIN
+				size[ScanPop[ ]] <— size[x] + rightTotal;
+				IF k > 0 THEN CheckStack[k];
+				END;
+			END;
+		END;
+
+
+	PrintNewLine: PROCEDURE[amount: CARDINAL] =
+		BEGIN
+		PutChar[output, CR]; -- output a carriage return
+		THROUGH [0. .amount) DO PutChar[output, ’ ] ENDLOOP; -- indent
+		END;
+
+	Indent: PROCEDURE[amount: CARDINAL] =
+		BEGIN
+		THROUGH [0. .amount) DO PutChar[output, ’ ] ENDLOOP; -- indent
+	END;
+
+-- print stack handling
+
+-- We assume push, pop, and top are deﬁned on the stack printStack; printStack is a
+-- stack of records; each record contains two fields: the integer “offset” and a ﬂag “break”
+-- (which equals “ﬁts” if no breaks are needed (the block ﬁts on the line), or “consistent”
+-- or “inconsistent”)
+
+	PrintStack: TYPE = POINTER TO PrintStackObject;
+
+	PrintStackObject: TYPE = RECORD[
+        index: CARDINAL <- 0,
+        length: CARDINAL <- 0,
+        items: ARRAY [0..0) OF PrintStackEntry];
+
+	PrintStackEntry: TYPE = RECORD[
+		offset: [0. .127],
+		break: PrintStackBreak];
+		
+	PrintStackBreak: TYPE = {ﬁts inconsistent, consistent};
+
+	Print: PROCEDURE[x: Token, l: INTEGER] =
+		BEGIN
+		WITH x SELECT FROM
+		begin =>
+			BEGIN
+			IF 1 > space THEN
+			Push[[space — offset,
+			IF breakType = consistent THEN consistent ELSE inconsistent]]
+			ELSE Push[[0, ﬁts]];
+			END;
+		end => [] <— Pop[];
+		break =>
+			BEGIN
+			SELECT Top[ ].break FROM
+				ﬁts =>
+					BEGIN
+					space <- space — blankSpace;
+					Indent[blankSpace];
+					END;
+				consistent =>
+					BEGIN
+					space <- Top[ ].offset — offset;
+					PrintNewLine[margin — space];
+					END;
+				inconsistent =>
+					BEGIN
+					IF I > space THEN
+						BEGIN
+						space <— Top[ ].offset — offset;
+						PrintNewLine[margin — space];
+						END
+					ELSE
+						BEGIN
+						space <- space — blankSpace;
+						Indent[blankSpace];
+						END;
+					END;
+				ENDCASE;
+			END;
+		string =>
+			BEGIN
+			IF I > space THEN ERROR LineTooLong;
+			space <— space — l;
+			CharIO.PutString[output, string];
+			END;
+		ENDCASE => ERROR;
+	END;
+
+END.

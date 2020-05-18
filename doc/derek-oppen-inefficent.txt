@@ -1,0 +1,50 @@
+#
+# This is the "INEFFICIENT BUT SIMPLE ALGORITHM"
+# described in section 3 of the Oppen paper.
+#
+
+print(x, 1):
+cases
+    x:string => output(x); space := space -l;
+    x:[ => push(S, space);
+    x:] => pop(S);
+    x:blank => if l > space
+        then space := top(S) - 2; indent(margin — space);
+        else output(x); space := space - 1;
+
+scan( ) :local x;
+forever x := receive();
+    cases
+        x:eof = halt;
+        x: [ =>
+            cases S: empty = left := right := rightotal := 1;
+                otherwise => right := right + 1;
+            stream[right] := x;
+            size[right] := —rightotal;
+            push(S, right);
+        x: ] =>
+            right := right + 1;
+            stream[right] := x;
+            size[right] := 0;
+            x := pop(S);
+            size[x] := rightotal + size[x];
+            if stream[x]: blank then x := pop(S); size[x] := rightotal + size[x];
+            if S: empty
+                then until left > right do
+                    print(stream[left], size[left]);
+                    left := left + 1;
+        x: blank =>
+            right := right + 1;
+            x := top(S);
+            if stream[x] : blank then size[pop(S)] := rightotal + size[x];
+            stream[right] := x;
+            size[right] := —rightotal;
+            push(S, right);
+            rightotal := rightotal + 1;
+        x: string =>
+            cases S: empty => print(x, length(x));
+                otherwise =>
+                    right := right + 1;
+                    stream[right] := x;
+                    size[right] := length(x);
+                    rightotal := rightotal + length(x);

@@ -1,0 +1,55 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "1. Debug usage.py",
+            "type": "python",
+            "request": "launch",
+            "pythonPath": "${config:python.interpreterPath}",
+            "program": "${workspaceFolder}/usage.py",
+            "args": [
+                "runserver"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "justMyCode": false
+        },
+        {
+            "name": "2a. PyTest",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": false,
+            "pythonPath": "${config:python.interpreterPath}",
+            "module": "pytest",
+            "args": [
+                // "--oppen"
+            ],
+            "cwd": "${workspaceRoot}",
+            "env": {},
+            "envFile": "${workspaceRoot}/.env",
+            "console": "internalConsole",
+            "justMyCode": false
+        },
+
+        {
+            "name": "2b. PyTest:Nested Blocks",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": false,
+            "pythonPath": "${config:python.interpreterPath}",
+            "module": "pytest",
+            "args": [
+                "tests/test_nested_block.py"
+            ],
+            "cwd": "${workspaceRoot}",
+            "env": {},
+            "envFile": "${workspaceRoot}/.env",
+            "console": "internalConsole",
+            "justMyCode": false
+        },
+
+    ]
+}

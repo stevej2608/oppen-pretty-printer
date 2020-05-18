@@ -1,0 +1,95 @@
+#
+# This is the "EFFICIENT BUT LESS SIMPLE ALGORITHM"
+# described in section 4 of the Oppen paper.
+#
+
+print(x, 1):
+cases
+    x:string => output(x); space := space -l;
+    x:[ => push(S, space);
+    x:] => pop(S);
+    x:blank => if l > space
+        then space := top(S) - 2; indent(margin — space);
+        else output(x); space := space - 1;
+
+scan(): local x;
+forever x := receive( );
+    cases
+        x: eof = halt;
+        x:[ =>
+            cases S :empty = left := right := leftotal := rightotal := 1;
+                otherwise => right := if right = arraysize then 1 else right + 1;
+            stream[right] := x;
+            size[right] := —rightotal;
+            push(S, right);
+        x:] =>
+            cases S: empty => print(x, 0);
+                otherwise =>
+                    right := if right = arraysize then 1 else right + 1;
+                    stream[right] := x;
+                    size[right] := 0;
+                    x := pop(S);
+                    size[x] := rightotal + size[x];
+                    if stream[x]: blank and S: empty
+                        then x := pop(S); size[x] := rightotal + size[x];
+                    if S: empty then advanceleft(stream[left], size[left]);
+        x: blank =>
+            cases S: empty left := right := rightotal := 1;
+                otherwise =>
+                    right := if right = arraysize then 1 else right + 1;
+                    x := top(S);
+                    if stream[x]:blank then size[pop(S)] := rightotal + size[x];
+                    stream[right] := x;
+                    size[right] := —rightotal;
+                    push(S, right);
+                    rightotal := rightotal + 1;
+        x: string =>
+            cases S: empty => print(x, length(x));
+                otherwise =>
+                    right := if right = arraysize then 1 else right + 1;
+                    stream[right] := x;
+                    size[right] := length(x);
+                    rightotal := rightotal + length(x);
+                    while rightotal — leftotal > space do
+                        size[popbottom()] := 999999;
+                        advanceleft(stream[left], size[left]);
+#
+
+advanceleft(x, l):
+if l >= 0 then
+    print(x, l);
+    cases x: blank => leftotal := leftotal + 1;
+    x: string => leftotal := leftotal + l;
+    if left != right then
+        left := if left = arraysize then 1 else left + 1;
+        advanceleft(stream[left], size[left]);
+
+#
+
+push(S, x):
+if stackempty
+    then stackempty := false
+    else top := if top = arraysize then 1 else top + 1;
+S[top] := x;
+
+#
+
+pop(S) :local x;
+x := S [top];
+if bottom = top
+    then stackempty := true
+    else top := if top = 1 then arraysize else top — 1;
+return x;
+
+#
+
+top(S) :return S[top];
+
+#
+
+popbottom(S) :local x;
+x := S[bottom];
+if bottom = top
+    then stackempty := true
+    else bottom := if bottom = arraysize then 1 else bottom + 1;
+return x;

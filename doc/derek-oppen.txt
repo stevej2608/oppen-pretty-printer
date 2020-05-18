@@ -1,0 +1,1052 @@
+Prettyprinting
+
+DEREK C. OPPEN
+Stanford University
+
+ 
+
+An algorithm for prettyprinting is given. For an input stream of length n and an output device with
+linewidth m, the algorithm requires time 0(n) and space 0071). The algorithm is described in terms
+of two parallel processes: the ﬁrst scans the input stream to determine the space required to print
+logical blocks of tokens; the second uses this information to decide where to break lines of text; the
+two processes communicate by means of a buffer of size 0(m). The algorithm does not wait for the
+entire stream to be input, but begin: printing as soon as it has received a full line of input. The
+algorithm is easily implemented.
+
+Key Words and Phrases: prettyprinting, formating, paragraphing, text editing, program manipulation
+CR Category: 412
+
+ 
+
+1. INTRODUCTION
+
+A prettyprinter takes as input a stream of characters and prints them with
+aesthetically appropriate indentations and line breaks. As an example, consider
+the following stream:
+
+var x:integer; y:char; begin x := 1; y := ‘a’ end
+If our line width is 40 characters, we might want it printed as follows:
+
+var x:integer; y: char;
+begin x := 1; y := ‘a’ end
+
+If our line width is 30 characters, we might want it printed as follows:
+
+var x : integer;
+y: char;
+
+But under no circumstances do we want to see
+var x : integer; y:
+char; begin x := 1;
+y := ‘a’; end
+
+ 
+
+Permission to copy without fee all or part of this material is granted provided that the copies are not
+made or distributed for direct commercial advantage, the ACM copyright notice and the title of the
+publication and its date appear, and notice is given that copying is by permission of the Association
+for Computing Machinery. To copy otherwise, or to republish, requires a fee and/or speciﬁc
+permission.
+
+This work was supported by the National Science Foundation under Grant MCS 78-02835.
+
+Author’s address: Computer Systems Laboratory, Stanford University, Stanford, CA 94305.
+
+
+Prettyprinters are common components of LISP environments, where trees or
+s-expressions are data objects which are interactively manipulated and have to
+be displayed on a screen or on the printed page. Since the main delimiters in
+LISP are parentheses and spaces, a LISP program or s—expression is visually
+intolerable unless prettyprinted. (See [2] or [3] for descriptions of some pretty-
+printers for LISP.)
+
+Prettyprinters for block-structured languages appear less commonly, perhaps
+because “programming environments” for such languages did not exist until
+recently. (See the references and bibliography for descriptions of some imple-
+mented prettyprinters.) Happily, this situation is changing fast. Prettyprinters
+are integral components of any programming environment tool. For example,
+editors for block-structured languages beneﬁt enormously from a prettyprinter—
+as the user interactively makes changes to his program text, the modified program
+is pleasingly displayed. Not only does this make it easier for the user to read his
+program text, but it makes it easier for him to notice such common programming
+errors as missing ends. Compilers should use prettyprinters to print out error
+messages in which program text is displayed; this would make the error much
+more understandable. Prettyprinters are useful in any system which prints or
+displays messages or other output to the user.
+
+Prettyprinters have traditionally been implemented by rather ad hoc pieces of
+code directed toward speciﬁc languages. We instead give a language-independent
+prettyprinting algorithm. The algorithm is easy to implement and quite fast. It is
+not, however, as sophisticated as it might be, and certainly cannot compete with
+typesetting systems (such as TEX [4]) for preparing text for publication. How-
+ever, it seems to strike a reasonable balance between sophistication and simplicity,
+and to be appropriate as a subcomponent of editors and the like.
+
+We do not discuss in detail the question of how to interface the prettyprinter
+described here with any speciﬁc language. In general, the prettyprinter requires
+a front-end processOr, which knows the syntax of the language, to handle ques—
+tions about where best to break lines (that is, questions about the inherent block
+or indenting structure of the language) and questions such as whether blanks are .
+redundant. We describe in Section 6 two approaches we have taken to imple-
+menting a preprocessor for prettyprinting.
+
+2. BASIC NOTIONS
+
+The basic idea of how a prettyprinter works is well established in the folklore,
+and the algorithms of which the author is aware all provide roughly the same set
+of primitives, which the algorithm described here also provides.
+
+A prettyprinter expects as input a stream of characters. A character may be a
+printable character such as “a”, “3”, “&”, or “,”, or it may be a delimiter such as
+blank, carriage-return, linefeed, or formfeed. A contiguous sequence of printable
+characters (that is, not delimiters) is called a string. The prettyprinter may break
+a line between strings but not within a string.
+
+We differentiate between several types of delimiters. The ﬁrst type of delimiter
+is the blank (carriage returns, formfeeds, and linefeeds are treated as blanks).
+The next two types correspond to special starting and ending delimiters for
+logically contiguous blocks of strings. We denote the delimiters {[ and ]}, respec-
+
+
+tively. The algorithm will try to break onto different lines as few blocks as
+possible. For instance, suppose we wish to print f(a, b, c, d) + g(a, b, c, d) on a
+display which is only 20 characters wide. We might want this expression printed
+as
+
+ﬂa. b, c, d)
++ g(a. 6, c, d)
+
+01‘ as
+
+f(a. b, c, d) +
+g(a, 6, c, d)
+
+but deﬁnitely not as
+f(a, 6, c, d) + g(a,
+
+)
+c,
+
+d)
+
+We can avoid the third possibility by making f (a, b, c, d) and g(a, b, c, d)
+logically contiguous blocks, that is, by surrounding each by {I and ]}. In fact, since
+this expression undoubtedly appears within some other text, we should include
+logical braces around the whole expression as well:
+
+Illﬂa, b. 0. (1)1} + Ilg(a, 11, 0, d)lI]I
+
+(You might be asking at this point why the algorithm does not recognize that
+parentheses are delimiters and thus that g(a, b, c, d) should not be broken if
+possible. But the prettyprinting algorithm given here is a general-purpose algo-
+rithm providing primitives for prettyprinting and is not tailored to any particular
+language. The example could have been written just as easily with two begin
+. . . end blocks.)
+
+We later allow reﬁnements to the above set of delimiters, but for the moment
+we describe the algorithm using just these three. We assume that the algorithm
+is to accept as input a “stream” of tokens, where a token is a string, a blank, or
+one of the delimiters {[ and I]. A stream is recursively deﬁned as follows:
+
+(1) A string is a stream. ,,
+
+(2) If 31,. . . , s]. are streams, then {81(blank)sz(blank) --- (b1ank)sk]] is a stream.
+As we see later, this deﬁnition of an “allowable” stream is a little too restrictive
+
+in practice but makes it easier to describe the basic algorithm. We make one
+
+additional assumption to simplify discussion of the space and time required by
+
+the basic algorithm: No string is of length greater than the line width of the
+output medium.
+
+3. AN lNEFFICIENT BUT SIMPLE ALGORITHM
+
+We ﬁrst describe an algorithm which uses too much storage, but which should be
+fairly easy to understand. The algorithm uses functions scan( ) and print( ).
+
+
+The input to scan( ) is the stream to be prettyprinted; scan( ) successively adds
+the tokens of the stream to the right end of a buffer. Associated with each token
+in the buffer is an integer computed by scan( ) as follows. Associated with each
+string is the space needed to print it (the length of the string). Associated with
+each {I is the space needed to print the block it begins (the sum of the lengths of
+the strings in the block plus the number of blanks in the block). Associated with
+each ]} is the integer 0. Associated with each blank is the amount of space needed
+to print the blank and the next block in the stream (1 + the length of the next
+block).
+
+In order to compute these lengths, scan( ) must “look ahead” in the stream; it
+uses the buffer stream to store the tokens it has already seen. When scan( ) has
+computed the length l for the token x at the left end of the buffer, it calls
+print( x, l) and removes x and I from the buffer. The buffer is therefore a ﬁrst-in—
+ﬁrst-out buffer.
+
+The length information associated with each token is used by print( ) to decide
+how to print it. If print( ) receives a string, it prints it immediately. If print( )
+receives a {I , it pushes the current indentation on a stack but prints nothing. If it
+receives a ]}, it pops the stack. If print( ) receives a blank, it checks to see if the
+next block can ﬁt on the present line. If so, it prints a blank; if not, it skips to a
+new line and indents by the indentation stored on the top of the stack plus an
+arbitrary offset (in this case, 2).
+
+We describe print( ) ﬁrst, because it is the simpler routine. It uses auxiliary
+functions output(x), which prints x on the output device, and indent(x), which
+starts a new line and indents 3: spaces. print( ) also uses a local stack S with
+operations push( ), pop( ), and top() (the latter returns the top of the stack
+without popping it). It also uses the constant margin, which is the line Width, and
+a variable space (initially equal to margin), which stores the number of spaces
+left on the present line.
+
+print(x, 1):
+cases
+xzstring => outpuﬂx); space := space -— l;
+x:{[ =push(S, space);
+x: I) => pop(S);
+x:blank => ifl > space
+then space := top(S) - 2; indent(margin — space);
+else output(x); space := space - 1;
+
+Now we are ready for scan( ). It successively receives tokens from receive( )
+and stores each at the right of the buffer stream. It uses a second buffer size for
+storing the lengths associated with tokens as described above. It uses variables
+left and right for pointing at the left and right ends of these buffers (the buffers
+are assumed to be of arbitrary length). It uses a local stack S with operations
+push( ), pop( ), and top( ), and a local variable x. Finally, it uses a variable
+rightotal to store the total number of spaces needed to print all elements of the
+buffer from stream[1] through stream[right].
+
+
+scan( ) :local x;
+forever 3: := receive( );
+cases
+xzeof = halt;
+x: |[ =>
+cases S: empty = left := right := rightotal := 1;
+otherwise => right := right + 1;
+stream[right] := x;
+size[right] := —rightotal;
+push(S, right);
+152]] =>
+right := right + 1;
+stream[right] := x;
+size[right] := 0;
+x 1= POMS);
+size[x] := rightotal + size[x];
+if stream[x] :blank then x := pop(S); size[x] := rightotal + size[x];
+if S: empty
+then until left > right do
+print(stream[left], size[left]);
+left := left + 1;
+x: blank =>
+right := right + 1;
+x := top(S);
+if stream[x] : blank then size[pop(S)] := rightotal + size[x];
+stream[right] := x;
+size[right] := —rightotal;
+push(S, right);
+rightotal := rightotal + 1;
+x: string =>
+cases S: empty => print(x, length(x));
+otherwise =
+right := right + 1;
+stream[right] := x;
+size[right] := length(x);
+rightotal := rightatal + length(x);
+
+To keep track of occurrences of delimiters, scan( ) uses the stack. If it receives
+a [, it stores the {I in stream[right] and —rightotal in size[right]; when it receives
+the corresponding 1}, it computes the space needed for this block—it is (the
+current value of ) rightotal + size[right]. If scan( ) receives a I}, the top of the
+stack is either the index of the {1 starting the block (if the block contained no
+blanks) or the index of the previous blank in this block and underneath that the
+index of the {1 starting the block. In the former case, scan( ) computes the length
+associated with the {1; in the latter, it computes the lengths associated with the
+{I and the blank. If scan( ) receives a blank, the top of the stack contains either
+the index to the start of the block or the index to the previous blank in the block.
+If the latter, scan( ) computes the length associated with the previous blank.
+
+A nice property of scan( ) is that it requires time linear in the length of the
+stream (as does print( D. An undesirable property is that it also requires space
+linear in the length of the stream. To see this, suppose the whole stream is
+delimited by {I and ]}. Then scan( ) will read the whole stream before it computes
+
+
+the length of this block. (If all blocks are small, this may be considered an
+unimportant point.) Another problem with scan( ) is that it may have to process
+large amounts of data before the ﬁrst character can be printed. This property is
+undesirable in an interactive environment: we want to start printing characters
+as soon as possible, if only to give the user positive reinforcement.
+
+We are now ready for the next iteration of the algorithm, which requires space
+0(m) rather than 0(n), that is, space which depends only on the line width of
+the output medium and not on the length of the input.
+
+4. AN EFFICIENT BUT LESS SIMPLE ALGORITHM
+
+Let us consider again the roles of scan() and print( ). It may be helpful to
+visualize them as two parallel processes communicating via the buffers stream
+and size. scan( ) wants to put information into the buffers on the right, while
+print() wants to remove information from them on the left. That is, scan()
+wants to advance the cursor variable right, while print( ) wants to advance the
+cursor variable left.
+
+The problem is that print() cannot use stream[left] until size[left] has a
+positive value. In the algorithm given in the previous section, if stream[left] is a
+[[ or a blank, scan( ) will not fill in size[left] until it has seen the corresponding
+1) or next corresponding blank, and this holds up print( ) unnecessarily. Since
+there can only be m characters on a line, it is not necessary for scan( ) to compute
+an exact value for size[left] if size[left] is going to be greater than m. As soon as
+scan( ) knows that size[left] must be greater than m, it may as well make
+size[left] equal to 00. That is, as soon as the sum of the lengths of strings plus the
+number of blanks between left and right in stream exceeds m, we can let print( )
+advance.
+
+Thus, scan( ) and print( ) need not get too far apart in accessing the buffers.
+Allowing for the fact that stream stores occurrences of {I and l} as well as strings
+and blanks, right — left need never exceed 3m. Hence our buffer size can be linear
+in m, and we never need look ahead more than 3m tokens before being able to
+print something.
+
+In fact, we can do even better. At any moment, print( ) has printed zero or
+more characters on a line. All it needs to know in order to make a decision on
+how to print the next block in the stream is whether or not the block can ﬁt in
+the remaining space on the line. Consequently, we do not have to test whether
+the space required by the elements of stream between left and right exceeds m,
+but rather whether or not it exceeds the present value of space—the variable
+used in print( ) to store the number of spaces remaining on the present line.
+
+We are now ready to describe our refined algorithm. It is closely related to our
+previous algorithm. print( ) remains the same. scan( ) uses an additional variable
+leftotal, which is the total number of spaces needed to print all elements of the
+buffer from stream[1] through stream[lcft] (analogous to rightotal which mea-
+sures from stream[1] through stream[right]). popbottom( ) removes the bottom
+element of the stack (so our local stack is no longer a true stack—we can ﬂush
+elements from its bottom). And when scan( ) chooses to force output from the
+left of the stream, it does so by calling the auxiliary function advanceleft( ). We
+implement stream and size as two arrays of size arraysize, a constant equal to
+
+
+3m, say. The variables left and right are initially 1, pointing to the start of the
+arrays.
+
+scan( )zlocal x;
+forever at := receive( );
+cases
+at : eof = halt;
+x:ﬂ =
+cases S :empty = left := right := leftotal := rightotal := 1;
+otherwise => right := if right = arraysize then 1 else right + 1;
+stream[right] := x;
+size[right] := —right0tal;
+push(S, right);
+x:1} =
+cases S: empty => print(x, 0);
+otherwise =
+right := if right = arraysize then 1 else right + 1;
+stream[right] := x;
+size[right] := 0;
+x 1= POMS);
+size[x] := rightotal + size[x];
+if stream[x] :blank and ‘IS: empty
+then x := pop(S); size[x] := rightotal + size[x];
+if S: empty then advanceleft(stream[left], size[left]);
+x: blank =
+cases Szempty left := right := rightotal := 1;
+otherwise =>
+right := if right = arraysize then 1 else right + 1;
+x := top(S);
+if stream[x]:blank then size[pop(S)] := rightotal + size[x];
+stream[right] := x;
+size[right] := —rightotal;
+push(S, right);
+rightotal := rightotal + 1;
+x: string =>
+cases S: empty => print(x, length(x));
+otherwise =
+right := if right = arraysize then 1 else right + 1;
+slream[right] := x;
+size[right] := length(x);
+rightotal := rightotal + length(x);
+while rightotal — leftotal > space do
+size[popboltom( )] := 999999;
+aduanceleft(stream[left], size[left]);
+
+advanceleft(x, I):
+if I 2 0 then
+print(x, 1);
+cases xzblank => leftotal := leﬂotal + 1;
+xzstring => leftotal := leftotal + I;
+if left 76 right then
+left := if left = arraysize then 1 else left + l;
+advanceleft(stream[leﬂ], si2e[left]);
+
+We have implemented the buffers in the obvious way as ring buffers. print( )
+
+
+follows scan( ) around the buffers (that is, left follows right), and as long as the
+size of the buffers is at least 3m, scan( ) will not overtake print( ).
+
+All that remains is to describe how to implement the local stack S. One way is
+to implement it also as an array of size arraysize, with indexing variables top and
+bottom initially equal to 1, and a Boolean variable stackempty initially set to true.
+We implement the test Szempty as a test on the value of stackempty and the
+other stack operations as follows:
+
+push(S, x):
+if stackempty
+then stackempty := false
+else top := if top = arraysize then 1 else top + 1;
+S[top] := x;
+pop(S) :local x;
+x := S [top];
+if bottom = top
+then stackempty := true
+else top := if top = 1 then arraysize else top — 1;
+return x;
+
+top(S) :retum S[top];
+popbottom(S) :local 3:;
+x := S[bottom];
+if bottom = top
+then stackempty := true
+
+else bottom := if bottom = arraysize then 1 else bottom + 1;
+return 1:;
+
+5. MODIFICATIONS TO THE BASIC ALGORITHM
+
+The algorithm actually implemented by the author is somewhat more sophisti—
+cated. The complete algorithm is given in the appendix.
+
+There is one major deﬁciency in the set of delimiters we chose, and that is that
+the delimiter blank is not subtle enough. It needs at least three associated
+parameters.
+
+First, we want a variable offset associated with each blank instead of the
+constant offset 2 used in the algorithm. This allows us to have, for example, the
+following:
+
+caseslz...
+2:...
+3:...
+
+where we have indented six characters to line up the cases. Variable offsets also
+allow us the option of choosing, say, either of the following ways of indenting
+begin . . . end blocks (assuming a narrow enough line width to force breaking):
+
+begin
+x 2= f(x);
+y == ﬂy);
+end;
+
+
+begin
+x 2= f(x);
+yFﬂw
+end;
+
+Second, we want to differentiate between two types of blanks, which we call
+consistent and inconsistent blanks. If a block cannot ﬁt on a line, and the blanks
+in the block are consistent blanks, then each subblock of the block will be placed
+on a new line. If the blanks in the block are inconsistent, then a new line will be
+forced only if necessary. The reason for this differentiation is that we may prefer
+
+begin
+x := f(x);
+yrﬂm
+ZFﬂm
+w := f(w);
+end;
+
+to
+
+begin
+x == f(x);y == ﬂy);
+2 := f(2); w := f0”);
+
+end,
+
+but prefer
+
+locals x, y, z, w,
+a, b, c, d;
+
+to
+
+locals x,
+
+ya
+2,
+
+(assuming again that the line width is sufﬁciently narrow to force breaking). That
+
+is, for begin . . . end blocks we may prefer consistent breaking, but for declaration
+lists we may prefer inconsistent breaking.
+
+Finally, we want to be able to parameterize the length of each blank. A blank
+of length zero (that is, an invisible blank) is useful when one wants to insert a
+possible line break but print nothing otherwise.
+
+There is one other major modiﬁcation that the author has found useful,
+especially if this prettyprinter is used as the output device for an unparser.
+Consider the following stream for printing out f ( g(x, y)):
+
+If(IIg(x. (blank>y)l<blank))ll
+
+
+This may result in the following output:
+f (g(x, y)
+)
+
+given appropriate line width and parameters to the delimiters. We might instead
+prefer
+
+f(g(x,
+30)
+
+even though the ﬁrst is correct according to the algorithm (since it breaks fewer
+logical blocks). We could try to stop a line break from occurring between the
+right parentheses by sending the stream
+
+IIf(IIg(x, (blank)y)l)l
+
+that is, by deleting the (blank) between the parentheses. But this violates the
+assumptions given in Section 2 on what constitutes a legal stream. The algorithm
+in the appendix tries to handle in a reasonable fashion any sequence of tokens
+(if the stream satisﬁes the assumptions given in Section 2, the output is the same
+as given by the basic algorithms). It does assume, however, that occurrences of
+{I and 1} are balanced and that the stream begins with a {I (for correct initialization).
+In particular, it effectively changes (dynamically) each occurrence of ]}(string)
+into (string) ]}.
+
+6. A PREPROCESSOR FOR PRETTYPRINTING
+
+Let us brieﬂy consider the question of how to tailor the prettyprinter to some
+speciﬁc language.
+
+The simplest way is to drive the prettyprinter directly from the parse tree
+produced by a parser or the parsing component of a compiler. Typically, this
+component ﬁrst translates the program (a stream of text) into a tree. For instance,
+if the grammar for the language contains the production
+
+(term) —> (subterm) (operator) ( subterm)
+
+the parser may generate, when parsing a + b, the subtree consisting of a node
+with three successors: the subtrees corresponding to a, +, and b. The preprocessor
+to the prettyprinter then walks this tree in what might be called a “recursive
+descent unparse.” For instance, when faced with our example tree for a + b, the
+unparser may ﬁrst generate a {L recursively unparse the ﬁrst subtree to generate
+a, generate a blank, unparse the subtree for +, generate another blank, unparse
+the subtree for b, and ﬁnally generate a closing ]}.
+
+Driving the prettyprinter from the parse tree is relatively straightforward,
+especially in languages such as LISP where the program is a tree. A disadvantage
+of waiting for the parse tree to be constructed is that prettyprinting is no longer
+on-line: the whole program must be parsed before prettyprinting can begin. In
+many situations this is no disadvantage.
+
+Notice that this method makes automatic use of the scanner of the parser to
+resolve all questions such as whether there are redundant blanks. This is, of
+course, a double-edged sword; the scanner component of many parsers also
+
+
+deletes useful information (such as comments). We must modify the scanner to
+pass this information on and modify the parse tree to save the information.
+
+We have used this “unparsing” approach to write a prettyprinter for formulas
+produced by the Stanford PASCAL Veriﬁer (with Wolf Polak) and for MESA
+(with Steve Wood).
+
+Another approach we have used also makes use of a scarmer and a parser for
+a language, but uses the parser to drive the prettyprinter directly, without using
+the parse tree. For instance, if we use a recursive descent parser, we can add code
+to the syntax routines of the parser to transmit to the prettyprinter the delimiters
+[, (blank), and I}, and the other tokens.
+
+If we are using a table-driven parser whose semantic routines are called bottom-
+up, we can use a slightly different approach. First, notice that the information
+needed by the prettyprinter can often conveniently be represented directly in the
+grammar; for instance, in our example production above,
+
+(term) —> {I (subterm) (blank) (operator) (blank) ( subterm) ]}
+
+Suppose we are using a parser generator (to generate a table-driven parser). We
+modify the grammar of the language to contain prettyprinting information as
+above, where (I, (blank), and ]} are nonterminals mapping only to the empty
+string. The semantic routines associated with these nonterminals transmit, re-
+spectively, {1, (blank), and ]] to the prettyprinter. The other semantic routines
+transmit to the prettyprinter the other tokens in the stream. Because table-driven
+parsers typically call their semantic routines in a bottom-up fashion, we may have
+to modify the grammar slightly to ensure that tokens are sent to the prettyprinter
+in the correct order. For instance, consider the production
+
+(block) —> begin (statementlist) end
+
+We do not want the semantic routine associated with (statementlist) to be called
+before the semantic routine for (block), because we do not want the tokens
+corresponding to (statementlist) to be printed before the begin is printed. We
+can Correct this by changing this production to
+
+(block) —> (begin)(statementlist) end
+(begin) ——> begin
+
+so that the semantic routine corresponding to begin will be called (and “begin”
+will be printed) before the semantic routine for (statementlist).
+
+The advantage of this variant is that it is very clean—the prettyprinting
+information for the language is represented in the grammar instead of being
+buried in the code. The disadvantage is that the tables for the parser may grow
+because of the additional productions. (The impact of this can be lessened to
+acceptable levels by not having explicit nonterminals for (I, (blank), or J}, but
+adding code to the semantic routines for the other nonterminals to drive
+the prettyprinter directly. For instance, the semantic routine corresponding
+to the nonterminal (begin) above could emit the three tokens (I, “begin”, and
+(blank).)
+
+A prettyprinter for MESA has been implemented in this fashion by Philip
+Karlton and the author.
+
+
+7. OTHER PRETTYPRINTERS
+
+The references give pointers to some of the existing literature on prettyprinters
+for speciﬁc languages. There is little literature on the actual algorithms used for
+prettyprinting. The following are some exceptions. As before, n denotes the length
+of the input stream and m denotes the line width of the output device.
+
+Goldstein [2] describes various ways of implementing prettyprinters for LISP
+and gives several algorithms requiring 0(n) time and 0(n) space. Dick Waters
+(private communication) independently discovered the observations given here
+on how much lookahead is required; he has implemented a prettyprinter for LISP
+which requires 0(mn) time and 0(m) space. Greg Nelson (private communica-
+tion) has a prettyprinting algorithm which requires 0(m) space and 0(n) time.
+Jim Morris (private communication) has an algorithm which, like the one
+described here, conceptually consists of two parallel processors; it requires 0(m)
+space and 0(mn) time. Hearn and Norman [3] have independently discovered a
+similar method; their description is informal and their analysis assumes that line
+width is constant, but if line width is assumed to be m, their algorithm appears to
+have the same bounds as Morris’ algorithm.
+
+8. IN CONCLUSION
+
+The primitives described in the previous sections seem satisfactory for most
+purposes. Of course, they are not perfect. For instance, we do not allow offsets
+which are a function of the next block in the stream. Thus, we may get
+
+cases 1:...
+2:...
+3:ifx = 1
+then x := f(x)
+else x := g(x);
+
+where we might have preferred to indent the cases slightly less, if we knew that
+this would allow the if . . . then . . . else statement to ﬁt on one line as follows:
+
+cases
+1:...
+2:...
+3:ifx = 1 then x := f(x) else x := g(x);
+
+Another deﬁciency of the algorithm is that it can do nothing if there is not
+room on the line for a string. This might happen if we haVe indented k spaces and
+want to print a string of size greater than margin — k. The author does not know
+of any simple and graceful way to solve this problem; two crude solutions are to
+just wrap around the screen or else forcibly to reduce the indentation just enough
+to right justify the offending string.
+
+This deﬁciency illustrates a general drawback of the algorithm—it does only
+constant space (one line width) lookahead, and its logic is not as sophisticated as
+it might be. However, we believe that the algorithm with its optional modiﬁcations
+strikes the right balance between simplicity and speed on one hand, and sophis-
+tication on the other, to be useful in the applications envisaged. It is perhaps
+worth repeating one desirable feature of the algorithm—it starts printing more or
+
+
+less as soon as it has received a full line of input, and printing never lags more
+than a full line behind the input routine. This we consider an important point in
+“human engineering.” It is also important as more systems begin to take advan-
+tage of the notion of “delayed evaluation,” where parts of expressions may be
+output before the entire expression is computed.
+
+APPENDIX
+
+The following is the augmented prettyprinting algorithm implemented by Philip
+Karlton and the author in MESA (see [1]). Some details have been left out
+concerning input/output and memory allocation. Comments are preceded by two
+dashes; numbers are either in octal or in binary (if followed by “B”).
+
+The prettyprinter receives tokens which are records of various types. A token
+of type “string” contains a string. A token of type “break” denotes an optional
+line break; if the prettyprinter outputs a line break, it indents “offset” spaces
+relative to the indentation of the enclosing block; otherwise it outputs “blank-
+Space” blanks; these values are defaulted to 0 and 1, respectively. Tokens of type
+“begin” and “end” correspond to our {[ and ]}, except that the type of breaks is
+associated with the “begin” rather than with the break itself (the type is defaulted
+to “inconsistent"), and an offset value may be associated with the “begin” (the
+offset applies to the whole block and is defaulted to 2). A token of type “eof”
+initiates cleanup. Finally, a “linebreak” is a distinguished instance of “break”
+which forces a line break (by setting “blankSpace” to be a very large integer).
+
+PrettyPrint: DEFINITIONS =
+BEGIN
+— — types
+TokenType: TYPE = {string break, begin, end, eof};
+Token: TYPE = RECORD[
+SELECT type: TokenType FROM
+string = [string: string],
+break = [
+blankSpace: [0. .MaxBlanks] (— 1, —— number of spaces per blank
+offset: [0. .31] (— 0], —— indent for overﬂow lines
+begin => [
+offset: [0. .127] <— 2, — - indent for this group
+breakType: Breaks <— inconsistent], —- default “inconsistent”
+end => NULL,
+eof = NULL,
+ENDCASE];
+
+MaxBlanks: CARDINAL = 127;
+
+Breaks: TYPE = {consistent, inconsistent};
+
+LineBreak: break Token = [break[blankSpace: MaxBlanks]];
+END.
+
+PrettyPrinter: PROGRAM
+EXPORTS PrettyPrint =
+BEGIN
+margin, space: INTEGER;
+left, right: INTEGER;
+token: DESCRIPTOR FOR ARRAY 0F Token <— DESCRIPTOR[NIL, 0];
+size: DESCRIPTOR FOR ARRAY OF INTEGER <— DESCRIPTOR[NIL, 0];
+leftTotal, rightTotal: INTEGER;
+
+
+sizeInﬁnity: INTEGER = 77777B;
+
+scanStack: DESCRIPTOR FOR ARRAY OF INTEGER <— DESCRIPTOR[NIL, 0];
+scanStackEmpty: BOOLEAN;
+
+top, bottom: CARDINAL;
+
+printStack: PrintStack <— CreatePrintStack[63];
+
+PrettyPrintInit: PROCEDURE[]ineWidth: CARDINAL <— 75] =
+BEGIN
+n: CARDINAL;
+space <— margin <—1ineWidth;
+n <— 3tmargin;
+top <— bottom <— 0;
+scanStackEmpty (— TRUE;
+token 4— Memory.Get[n*SIZE[Token], n];
+size <— Memory.Get[n*SIZE[INTEGER], n];
+scanStack (— Memory.Get[n*SIZE[CARDINAL], n];
+END;
+
+PrettyPrint: PROCEDURE[tkn: Token] =
+BEGIN
+WITH t: tkn SELECT FROM
+eof =
+BEGIN
+IF ~scanStackEmpty THEN
+BEGIN
+CheckStack[0];
+AdvanceLeft[token[left], size[left]];
+END;
+Indent[0];
+Memory.Free[BASE[token]];
+Memory.Free[BASE[size]];
+Memory.Free[BASE[scanStack]];
+END;
+begin =>
+BEGIN
+IF scanStackEmpty THEN
+BEGIN
+leftTotal <— rightTotal <— 1;
+left (— right <— 0;
+END
+ELSE AdvanceRight[ ];
+token[right] <— t;
+size[right] <— —rightTotal;
+ScanPush[right];
+END;
+end =
+BEGIN
+IF scanStackEmpty THEN Print[t, O]
+ELSE
+BEGIN
+AdvanceRight[ ];
+token[right] <— t;
+size[right] (— — 1;
+ScanPush[right];
+END;
+END;
+
+
+break =
+BEGIN
+IF scanStackEmpty THEN
+BEGIN
+leftTotal (— rightTotal <— 1;
+left «— right <— 0;
+END
+ELSE AdvanceRight[ ];
+CheckStack[0];
+ScanPush[right];
+token[right] <— t;
+size[right] <— —rightTotal;
+rightTotal (— rightTotal + t.blankSpace;
+END;
+string =
+BEGIN
+IF scanStackEmpty THEN Print[t, t.length]
+ELSE
+BEGIN
+AdvanceRight[ ];
+token[right] (— t;
+size[right] (— t.length;
+rightTotal (- rightTotal + t.1ength;
+CheckStream[ ];
+END;
+END;
+ENDCASE;
+END;
+
+CheckStream: PROCEDURE =
+
+BEGIN
+
+IF rightTotal -— leftTotal > space THEN
+BEGIN
+IF ~scanStackEmpty THEN
+
+IF left = scanStack[bottom] THEN
+size[ScanPopBottom[ ]] <— sizeInﬁnity;
+
+AdvanceLeft[token[left], size[left]];
+IF ~(left = right) THEN CheckStream[ ];
+END;
+
+END;
+
+ScanPush: PROCEDURE[x: CARDINAL] =
+BEGIN
+IF scanStackEmpty THEN scanStackEmpty 4— FALSE
+ELSE
+BEGIN
+top <— (top + l) MOD LENGTH[scanStack];
+IF top = bottom THEN ERROR ScanStackFull;
+END;
+scanStack[top] <— x;
+
+ScanPop: PROCEDURE RETURNS[x: CARDINAL] =
+BEGIN
+IF scanStackEmpty THEN ERROR ScanStackEmpty;
+x <— scanStack[top];
+IF top = bottom THEN scanStackEmpty (— TRUE
+
+
+ELSE top <— (top + LENGTH[scanStack] — 1) MOD LENGTH[scanStack];
+END;
+
+ScanTop: PROCEDURE RETURNS[CARDINAL] =
+BEGIN
+IF scanStackEmpty THEN ERROR ScanStackEmpty;
+RETURN[scanStack[top]]
+END;
+
+ScanPopBottom: PROCEDURE RETURNSDC: CARDINAL] =
+BEGIN
+IF scanStackEmpty THEN ERROR ScanStackEmpty;
+x <— scanStack[bottom];
+IF top = bottom THEN scanStackEmpty (- TRUE
+ELSE bottom <— (bottom + 1) MOD LENGTH[scanStack];
+END;
+
+AdvanceRight: PROCEDURE =
+BEGIN
+right <— (right + 1) MOD LENGTH[scanStack];
+IF right = left THEN ERROR TokenQueueFull;
+END;
+
+AdvanceLeft: PROCEDUREDC: Token, l: INTEGER] = BEGIN
+IF 1 >= 0 THEN
+BEGIN
+Print[x, l ];
+WITH x SELECT FROM
+break => leftTotal <— leftTotal + blankSpace;
+string = leftTotal <— leftTotal + l;
+ENDCASE;
+IF left aé right THEN BEGIN
+left (— (left + 1) MOD LENGTH[scanStack];
+AdvanceLeft[token[left], size[left]];
+END;
+END;
+END;
+
+CheckStack: PROCEDURE[k: INTEGER] =
+BEGIN
+x: INTEGER;
+IF ~scanStackEmpty THEN
+BEGIN
+x (— ScanTop[ ];
+WITH token[x] SELECT FROM
+begin =>
+IF k > 0 THEN
+BEGIN
+size[ScanPop[ ]] <— size[x] + rightTotal;
+CheckStack[k — 1];
+END;
+end => BEGIN size[ScanPop[ ]] <— 1; CheckStack[k + 1]; END;
+ENDCASE a
+BEGIN
+size[ScanPop[ ]] <— size[x] + rightTotal;
+IF k > 0 THEN CheckStack[k];
+END;
+END;
+END;
+
+
+PrintNewLine: PROCEDURE[amount: CARDINAL] =
+BEGIN
+PutChar[output, CR]; - - output a carriage return
+THROUGH [0. .amount) DO PutChar[output, ’ ] ENDLOOP; —— indent
+END;
+
+Indent: PROCEDURE[amount: CARDINAL] =
+BEGIN
+THROUGH [0. .amount) DO PutChar[output, ’ ] ENDLOOP; —— indent
+END;
+
+- - print stack handling
+
+—- We assume push, pop, and top are deﬁned on the stack printStack; printStack is a
+—- stack of records; each record contains two fields: the integer “offset” and a ﬂag “break”
+- - (which equals “ﬁts” if no breaks are needed (the block ﬁts on the line), or “consistent”
+—— or “inconsistent”)
+
+PrintStack: TYPE = POINTER T0 PrintStackObject;
+PrintStackObject: TYPE = RECORD[
+
+index: CARDINAL (— 0,
+
+length: CARDINAL (— 0,
+
+items: ARRAY [0. .0) OF PrintStackEntry];
+PrintStackEntry: TYPE = RECORD[
+
+offset: [0. .127],
+
+break: PrintStackBreak];
+PrintStackBreak: TYPE = {ﬁts inconsistent, consistent};
+
+Print: PROCEDURE[x: Token, l: INTEGER] =
+BEGIN
+WITH x SELECT FROM
+begin :0
+BEGIN
+IF 1 > space THEN
+Push[[space — offset,
+IF breakType = consistent THEN consistent ELSE inconsistent]]
+ELSE Push[[0, ﬁts]];
+END;
+end => I] ‘— POPI ];
+break =>
+BEGIN
+SELECT Top[ ].break FROM
+ﬁts =>
+BEGIN
+space (— space — blankSpace;
+Indent[blankSpace];
+END;
+consistent =
+BEGIN
+space «— Top[ ].offset — offset;
+PrintNewLine[margin — space];
+END;
+inconsistent 2
+BEGIN
+IF I > space THEN
+BEGIN
+space <— Top[ ].offset — offset;
+PrintNewLine[margin — space];
+END
+
+
+ELSE
+BEGIN
+space (— space — blankSpace;
+Indent[blankSpace];
+END;
+END;
+ENDCASE;
+END;
+string =
+BEGIN
+IF I > space THEN ERROR LineTooLong;
+space +— space — l;
+CharIO.PutString[output, string];
+END;
+ENDCASE => ERROR;
+END;
+
+END.
+
+ACKNOWLEDGMENTS
+
+I am indebted to Philip Karlton, Don Knuth, Jim Morris, Greg Nelson, Wolf
+Polak, Ed Satterthwaite, Dick Waters, and Steve Wood for many stimulating
+conversations on prettyprinting.
+
+REFERENCES
+
+1. GESCHKE, C., MORRIS, J., AND SA’I'I‘ERTHWAITE, E. Early experience with Mesa. Commun. ACM
+20, 8 (Aug. 1977), 540—553.
+
+2. GOLDSTEIN, I. Pretty-printing, converting list to linear structure. Artiﬁcial Intelligence Labora-
+tory Memo. No. 279, M.I.T., Cambridge, Mass, 1973.
+
+3. HEARN, A.C., AND NORMAN, A.C. A one-pass prettyprinter. Rep. UUCS-79-112, University of
+Utah, Salt Lake City, Utah, 1979.
+
+4. KNUTH, D.E. Tau epsilon chi—A system for technical text. Rep. STAN-CS-78-675, Computer
+Science Dep., Stanford Univ., Stanford, Calif., 1978.
+
+BIBLIOGRAPHY
+
+CONROW, K.. AND SMITH, R.G. NEATERZ: A PL/I source program reformatter. Commun. ACM 13,
+11 (Nov. 1970), 669—675.
+
+DONZEAU-GOUGE, V., HUET, G., KAHN, G., LANG, R., AND LEVY, J .J . A structure-oriented program
+editor; A ﬁrst step towards computer assisted programming. Proc. Inter. Computing Symp., Antibes,
+1975.
+
+GORDON, H. Paragraphing computer programs. M.Sc. Thesis, Univ. of Toronto, Toronto, Ontario,
+Canada, 1975.
+
+HEURAS, J., AND LEDGARD, H. An automatic formatting program for Pascal. SIGPLAN Notices 12
+(1977), 82—84.
+
+HUET, G., KAHN, (3., AND LANG, B. The MENTOR Program Manipulation System. Unpublished
+manuscript, 1978.
+
+JOY, W. Berkeley Pascal PXP implementation notes. Manuscript, Dep. of Electrical Engineering
+and Computer Science, Univ. of California, Berkeley, Calif, 1979.
+
+KNUTH, D.E. BLAISE—A TEX preprocessor for Pascal. To appear.
+
+MCKEEMAN, W. Algorithm 268, Algal-60 reference language editor [R2]. Commun. ACM 8, 11 (Nov.
+1965), 667-669.
+
+MOHILNER, PR. Prettyprinting PASCAL programs. SIGPLAN Notices 13, 7 (1978), 34—40.
+
+PETERSON, J .L. On the formatting of Pascal programs. SIGPLAN Notices 12, 12 (1977), 83—86.
+
+
+SCOWEN, R., ALLIN, D., HILLMAN, A., AND SHINELL, M. SOAP—A program which documents and
+edits Algol60 programs. Comput. J. 14, 2 (1971), 133—135.
+
+TEITLEBAUM, T. The Cornell program synthesizer. Tech. Rep. 79-370, Dep. of Computer Science,
+Cornell Univ., 1979.
+
+Received September 1979; revised May and June 1980; accepted July 1980
