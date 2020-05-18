@@ -86,9 +86,12 @@ behaviour. The parameters are used to control indent, offset and the consistency
 To create a pretty printer for a new language grammar it is normal to write a tree 
 visitor using the visitor design-pattern. The visitor emits pretty-printer tokens 
 as is traverses the program AST. The token sequence is passed to the pretty 
-printer for printing.
+printer for printing. 
 
-For examples of usage see the pytest examples in the tests folder.
+See **[odata-pretty-printer](https://github.com/stevej2608/odata-pretty-printer)** for an
+example of traversing an AST and emitting `oppen-pretty-printer` tokens. For other
+examples of usage see the pytest examples in this projects the `./tests` folder.
+
 
 ### Development
 
