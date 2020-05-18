@@ -21,6 +21,11 @@ def publish(_ctx, version, pipy=False):
     Publish package with given version number to git and pypi
     """
 
+    def clean():
+        paths_to_clean = ["dist/"]
+        for path in paths_to_clean:
+            run(f"rm -rf {path}")
+
     def python_sdist():
         run("python setup.py sdist")
 
@@ -39,6 +44,9 @@ def publish(_ctx, version, pipy=False):
 
     check_prerequisites()
     set_pyversion(version)
+
+    info("Cleaning")
+    clean()
 
     python_sdist()
 

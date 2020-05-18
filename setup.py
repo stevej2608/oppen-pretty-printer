@@ -26,6 +26,9 @@ def _get_version():
     version = version_ns["__version__"]
     return version
 
+def _get_long_description():
+    with open(os.path.join(HERE, "landing-page.md")) as f:
+        return f.read()
 
 def _get_dependencies():
     """Parse requirements.txt and return a list of dependencies"""
@@ -46,18 +49,19 @@ def _get_dependencies():
 setup(
     name="oppen-pretty-printer",
     version=_get_version(),
-    url="http://localhost:3000/dad/oppen-pretty-printer",
+    url="https://github.com/stevej2608/oppen-pretty-printer",
     license='MIT',
 
     author="Steve Jones",
     author_email="jonesst608@gmail.com",
 
     description="pretty-printing algorithm developed by DEREK C. OPPEN",
-    long_description=read("README.md"),
+    long_description=_get_long_description(),
+    long_description_content_type="text/markdown",
 
     packages=find_packages(exclude=('tests',)),
     include_package_data=True,
-	
+
     install_requires=_get_dependencies(),
 
     classifiers=[
