@@ -103,7 +103,7 @@ To run pytest on `pretty_oppen.py` use:
 
 publish:
 
-    invoke publish 0.1.0
+    invoke publish 0.1.2 --pypi
 
 **Links:** (copies in the docs folder)
 
