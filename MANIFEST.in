@@ -1,1 +1,4 @@
 include requirements.txt
+include landing-page.md
+include README.md
+include LICENSE

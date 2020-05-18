@@ -1,6 +1,6 @@
 ## oppen-pretty-printer
 
-This project is an attempt at a faithful translation, to python, of the 
+This project is a faithful translation, to python, of the 
 pretty-printing algorithm developed by DEREK C. OPPEN at Stanford  University 
 in the late 1970s. The appendix of [PRETTY PRINTING, Derek C. Oppen, 1979] contains 
 the original prettyprint program written in [MESA]
@@ -27,11 +27,13 @@ from oppen_pretty_printer import pprint, Token as T
 
 tokens = [
     T.BEGIN(),
-    T.STRING("XXXXXXXXXX"),
+    T.STRING("begin"),
+    T.STRING("x"),
+    T.BREAK(), T.STRING(":="), T.BREAK(),
+    T.STRING("40"),
     T.BREAK(), T.STRING("+"), T.BREAK(),
-    T.STRING("YYYYYYYYYY"),
-    T.BREAK(), T.STRING("+"), T.BREAK(),
-    T.STRING("ZZZZZZZZZZ"),
+    T.STRING("2"),
+    T.STRING("end"),
     T.END(),
     T.EOF()]
 
