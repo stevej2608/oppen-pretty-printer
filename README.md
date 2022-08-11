@@ -1,16 +1,16 @@
 ## oppen-pretty-printer
 
-This project is a faithful translation, to python, of the 
-pretty-printing algorithm developed by DEREK C. OPPEN at Stanford  University 
-in the late 1970s. The appendix of [PRETTY PRINTING, Derek C. Oppen, 1979] contains 
+This project is a faithful translation, to python, of the
+pretty-printing algorithm developed by DEREK C. OPPEN at Stanford  University
+in the late 1970s. The appendix of [PRETTY PRINTING, Derek C. Oppen, 1979] contains
 the original prettyprint program written in [MESA]
 
-A much quoted, more recent algorithm, [A prettier printer, Philip Wadler 2003] refers to 
-Oppen, saying, "The pretty printer presented here uses an algorithm equivalent to Oppen’s, but presented 
+A much quoted, more recent algorithm, [A prettier printer, Philip Wadler 2003] refers to
+Oppen, saying, "The pretty printer presented here uses an algorithm equivalent to Oppen’s, but presented
 in a functional rather than an imperative style". Many of todays pretty printer implementations
 are based on the Wadler algorithm. So, in a way, the road leads back to Derek C. Oppen, 1979.
 
-Two python versions are included. `pretty_oppen.py` is, as far as possible, a 
+Two python versions are included. `pretty_oppen.py` is, as far as possible, a
 line-by-line translation of the Oppen algorithm from [MESA] to Python. `pretty.py` is
 functionally identical to `pretty_oppen.py` but written using a more Pythonic idiom.
 
@@ -27,30 +27,36 @@ from oppen_pretty_printer import pprint, Tokens as T
 
 tokens = [
     T.BEGIN(),
-    T.STRING("begin"),
+    T.STRING("begin"),T.BREAK(),
     T.STRING("x"),
     T.BREAK(), T.STRING(":="), T.BREAK(),
     T.STRING("40"),
     T.BREAK(), T.STRING("+"), T.BREAK(),
-    T.STRING("2"),
+    T.STRING("2"),T.BREAK(),
     T.STRING("end"),
     T.END(),
     T.EOF()]
 
 pprint(tokens)
 ```
-	
+
+Result:
+
+    "begin x := 40 + 2 end"
+
+For more complex examples see the *tests* folder.
+
 ### Overview
 
 The pretty printer processes a sequence of the tokens BEGIN, END, STRING, BREAK, EOF.
 The tokens BEGIN..END define a block that can contain any number of STRING and BREAK
 tokens together with nested BEGIN..END sub-blocks. The pretty printer attempts
 to keep the content of blocks together on the same line. If this is not possible
-then the block is automatically folded and indented at a suitable BREAK. 
+then the block is automatically folded and indented at a suitable BREAK.
 
-The STRING token holds a sequence of printable characters that will never be broken. The BRAKE token 
+The STRING token holds a sequence of printable characters that will never be broken. The BRAKE token
 is a replacement for a sequence of non-printing, white-space, characters. A
-BRAKE token is nominally printed as a `single-space` or, if 
+BRAKE token is nominally printed as a `single-space` or, if
 folding takes place, `new-line-with-indent-and-offset`.
 
 This example from Oppen's paper shows how the pretty printer deals with the same input for
@@ -83,10 +89,10 @@ width=75, BreakType.consistent
 BLOCK and BREAK tokens can be parameterized, if needed, to modify the default folding
 behaviour. The parameters are used to control indent, offset and the consistency of folding.
 
-To create a pretty printer for a new language grammar it is normal to write a tree 
-visitor using the visitor design-pattern. The visitor emits pretty-printer tokens 
-as is traverses the program AST. The token sequence is passed to the pretty 
-printer for printing. 
+To create a pretty printer for a new language grammar it is normal to write a tree
+visitor using the visitor design-pattern. The visitor emits pretty-printer tokens
+as is traverses the program AST. The token sequence is passed to the pretty
+printer for printing.
 
 See **[odata-pretty-printer](https://github.com/stevej2608/odata-pretty-printer)** for an
 example of traversing an AST and emitting `oppen-pretty-printer` tokens. For other
