@@ -23,7 +23,7 @@ Pytest tests and example output are included for both versions.
 
 Example:
 ```
-from oppen_pretty_printer import pprint, Token as T
+from oppen_pretty_printer import pprint, Tokens as T
 
 tokens = [
     T.BEGIN(),
